@@ -1,0 +1,253 @@
+﻿// ---------- Load SPIMEX daily bulletins ---------- //
+
+	// STEP 1 Load filenames for further reading
+	
+	// STEP 1.1 Add file with combined data from December 17, 2010 to June 1, 2015
+	LET vFile='$(vScript.LoadPath)' & '\fut_xls_20101217_20150601.xls';
+
+	tmpBulletinList:
+	LOAD 
+		'$(vFile)' 		   												As [File Path],
+   		Subfield('$(vFile)', '\', SubstringCount('$(vFile)', '\') + 1) 	As [File Name],
+   		20150601 														As [File Date],
+   		FileSize('$(vFile)' ) 											As [File Size],
+   		FileTime('$(vFile)' )											As [File Creation Time]
+	AutoGenerate(1);
+
+	// STEP 1.1 Add files since June 2, 2015
+	// Sample path is $(vScript.LoadPath)\c25a508c195777efb90f7f7333916643.xls
+	FOR Each vFile in FileList('$(vScript.LoadPath)' & '\fut_xls_*.xls') // '\fut_xls_2017*.xls'
+		Concatenate(tmpBulletinList)
+		LOAD *
+		WHERE Len([File Name]) = Len('fut_xls_20170302170000.xls')
+		  AND [File Date] >= 20150602;
+		LOAD 
+			'$(vFile)' 		   													As [File Path],
+       		Subfield('$(vFile)', '\', SubstringCount('$(vFile)', '\') + 1) 		As [File Name],
+       		Num#(Date#(Mid(SubField('$(vFile)', '_', -1), 1, 8), 'YYYYMMDD')) 	As [File Date],
+       		FileSize('$(vFile)' ) 												As [File Size],
+       		FileTime('$(vFile)' ) 												As [File Creation Time]
+    	AutoGenerate(1);
+	NEXT vFile
+
+	BulletinList: // Order data by date of report
+	NoConcatenate LOAD * Resident tmpBulletinList ORDER BY [File Date] Desc;
+
+	DROP Table tmpBulletinList;
+	
+	// STEP 2 Load data from the created list of files
+	
+	// STEP 2.1 Initialize an empty structure
+	[Bulletin SPIMEX]:
+	LOAD 
+		null() As Date,
+   		null() As [Instrument Type Name],
+		null() As [Instrument Type],
+		null() As [Instrument Name],
+		null() As Instrument,
+   		null() As [Currency Name],
+   		null() As Currency,
+   		null() As Rate,
+   		null() As Amount,
+   		null() As [Amount Address],
+   		null() As Value,
+   		null() As [Value Address],
+   		null() As [Value RUB],
+   		null() As [Value RUB Address],
+   		null() As [VWAP Price],
+   		null() As [Settlement Price],
+   		null() As [Settlement Price Previous],
+   		null() As [Price Min],
+   		null() As [Price Max],
+   		null() As [Price Min Address],
+   		null() As [Price Max Address],
+   		null() As [Best Sell Price],
+   		null() As [Best Buy Price],
+   		null() As [Open Interest Amount],
+   		null() As [Open Interest Amount Previous],
+   		null() As Count,
+   		null() As [Count Address],
+   		null() As Filename
+	AutoGenerate(1)
+	WHERE RecNo() < 0;
+	
+	// STEP 2.2 Read each file and load the data
+	FOR vFileNo = 1 to NoOfRows('BulletinList')
+		LET vFileDate = Peek('File Date', vFileNo-1, 'BulletinList');
+		LET vFileName = Peek('File Path', vFileNo-1, 'BulletinList');
+		
+		// The reporting format slightly changed over time, so each time  
+		// we encounter any change we have to correct the loading script accordingly
+		IF $(vFileDate) >= 20161129 THEN
+			Concatenate([Bulletin SPIMEX])
+			LOAD 
+				Date#(Mid(SubField(FileName(), '_', -1), 1, 8), 'YYYYMMDD') As Date,
+   		   		@1  As [Instrument Type Name],
+   		   		@2  As [Instrument Type],
+   		   		@3  As [Instrument Name],
+   		   		@4  As Instrument,
+   		  		@5  As [Currency Name],
+   		   		@6  As Currency,
+   		   		@7  As Rate,
+   		   		@8  As Amount,
+   		   		@9  As [Amount Address],
+   		   		@10 As Value,
+   		   		@11 As [Value Address],
+   		   		@12 As [Value RUB],
+   		   		@13 As [Value RUB Address],
+   		   		If(@15 > 0, @15, null()) As [VWAP Price],
+   		   		@14 As [Settlement Price],
+   		   		@16 As [Settlement Price Previous],
+   		   		If(@17 > 0, @17, null()) As [Price Min],
+   		   		If(@18 > 0, @18, null()) As [Price Max],
+   		   		If(@19 > 0, @19, null()) As [Price Min Address],
+   		   		If(@20 > 0, @20, null()) As [Price Max Address],
+	   		   	If(@21 > 0, @21, null()) As [Best Sell Price],
+  		   		If(@22 > 0, @22, null()) As [Best Buy Price],
+   		   		@23 As [Open Interest Amount],
+   		   		@24 As [Open Interest Amount Previous],
+   		   		@25 As Count,
+   		   		@26 As [Count Address],
+   		   		Filename() As Filename
+		   	FROM 
+		   		[$(vFileName)]
+		   		(biff, no labels, header is 7 lines, table is [Основной режим торгов$])
+		   	WHERE not IsNull(@4);
+		ELSEIF $(vFileDate) >= 20150804 THEN
+			Concatenate([Bulletin SPIMEX])
+			LOAD 
+				Date#(Mid(SubField(FileName(), '_', -1), 1, 8), 'YYYYMMDD') As Date,
+		   		If(Index(@1, 'с исп.'),
+		        	Mid(@1, 1, Index(@1, 'с исп.')-1),
+		        	Mid(@1, 1, Index(@1, 'Москва')+Len('Москва')+1)
+		     	)   As [Instrument Type Name], 
+				Mid(@2, 1, Len(@2)-2) As [Instrument Type],
+   		   		@1  As [Instrument Name],
+   		   		@2  As Instrument,
+   		   		'Рубль' As [Currency Name],
+   		   		'RUB' As Currency,
+   		   		1   As Rate,
+   		   		@3  As Amount,
+   		  	 	@4  As [Amount Address],
+   		   		@5  As Value,
+   		   		@6  As [Value Address],
+   		   		@5  As [Value RUB],
+   		   		@6  As [Value RUB Address],
+   		   		If(@8 > 0, @8, null()) As [VWAP Price],
+   		   		@7  As [Settlement Price],
+   		   		@9  As [Settlement Price Previous],
+   		   		If(@10 > 0, @10, null()) As [Price Min],
+   		   		If(@11 > 0, @11, null()) As [Price Max],
+   		   		null() As [Price Min Address],
+   		  	 	null() As [Price Max Address],
+   		   		If(@12 > 0, @12, null()) As [Best Sell Price],
+  		   		If(@13 > 0, @13, null()) As [Best Buy Price],
+   		   		@14 As [Open Interest Amount],
+   		   		@15 As [Open Interest Amount Previous],
+   		   		@16 As Count,
+   		   		@17 As [Count Address],
+   		   		Filename() As Filename
+		   	FROM 
+		   		[$(vFileName)]
+		   		(biff, no labels, header is 7 lines, table is [Основной режим торгов$])
+		   	WHERE not IsNull(@2);
+		ELSEIF $(vFileDate) >= 20150602 THEN
+			Concatenate([Bulletin SPIMEX])
+			LOAD 
+				Date#(Mid(SubField(FileName(), '_', -1), 1, 8), 'YYYYMMDD') As Date,
+		   		If(Index(@1, 'с исп.'),
+		        	Mid(@1, 1, Index(@1, 'с исп.')-1),
+		        	Mid(@1, 1, Index(@1, 'Москва')+Len('Москва')+1)
+		     	)   As [Instrument Type Name], 
+				Mid(@2, 1, Len(@2)-2) As [Instrument Type],
+   		   		@1 As [Instrument Name],
+   		   		@2 As Instrument,
+   		   		'Рубль' As [Currency Name],
+   		   		'RUB' 	As Currency,
+   		   		1  As Rate,
+   		   		@3 As Amount,
+   		  	 	@4 As [Amount Address],
+   		   		@5 As Value,
+   		   		@6 As [Value Address],
+   		   		@5 As [Value RUB],
+   		   		@6 As [Value RUB Address],
+				Round(	If(@3 > 0, 
+							@5/@3, 
+							null()
+						)/Pick(WildMatch(@2, 'FSCD*', 'FD*KIR*', '*'), 
+							10, 
+							1080, 
+							1
+						), 0.01)
+   		   		/*Pick(WildMatch(@2, 'FSCD*', 'FD*KIR*', '*'), 
+      	   			Round(If(@3 > 0, @5/@3, null())/10, 0.01), 
+					Round(If(@3 > 0, @5/@3, null())/1080, 10),
+      	   			Round(If(@3 > 0, @5/@3, null()), 10)
+      	     	)*/  As [VWAP Price],
+   		   		@7 As [Settlement Price],
+   		   		If(@8 > 0, @8, null()) As [Settlement Price Previous],
+   		   		If(@9 > 0, @9, null()) As [Price Min],
+   		   		If(@10 > 0, @10, null()) As [Price Max],
+   		   		null() As [Price Min Address],
+   		  	 	null() As [Price Max Address],
+   		   		If(@11 > 0, @11, null()) As [Best Sell Price],
+  		   		If(@12 > 0, @12, null()) As [Best Buy Price],
+   		   		@13 As [Open Interest Amount],
+   		   		@14 As [Open Interest Amount Previous],
+   		   		@15 As Count,
+   		   		@16 As [Count Address],
+   		   		Filename() As Filename
+		   	FROM 
+		   		[$(vFileName)]
+		   		(biff, no labels, header is 7 lines, table is [Основной режим торгов$])
+		   	WHERE not IsNull(@2);
+		ELSE
+			Concatenate([Bulletin SPIMEX])
+			LOAD @1  As Date,
+		   		Mid(@2, 1, Index(@2, 'с исп.')-1) As [Instrument Type Name],
+   		   		Mid(@3, 1, Len(@3)-2) As [Instrument Type],
+   		   		@2  As [Instrument Name],
+      	   		@3  As Instrument,
+      	   		'Рубль' As [Currency Name],
+   		   		'RUB' As Currency,
+   		   		1   As Rate,
+      	   		@4  As Amount,
+      	   		@5  As [Amount Address],
+      	   		@6  As Value,
+      	   		@7  As [Value Address],
+      	   		@6  As [Value RUB],
+   		   		@7  As [Value RUB Address],
+      	   		@8  As [Settlement Price],
+				Round(	If(@4 > 0, 
+							@6/@4, 
+							null()
+						)/Pick(WildMatch(@3, 'FSCD*', 'FD*KIR*', '*'), 
+							10, 
+							1080, 
+							1
+						), 0.01)
+      	   		/*Pick(WildMatch(@3, 'FSCD*', 'FD*KIR*', '*'), 
+      	   			Round(If(@4 > 0, @6/@4, null())/10, 0.01), 
+					Round(If(@4 > 0, @6/@4, null())/1080, 10),
+      	   			Round(If(@4 > 0, @6/@4, null()), 10)
+      	     	)*/   As [VWAP Price],
+      	   		@9  As [Settlement Price Previous],
+      	   		If(@10 > 0, @10, null()) As [Price Min],
+      	   		IF(@11 > 0, @11, null()) As [Price Max],
+      	   		null() As [Price Min Address],
+   		   		null() As [Price Max Address],
+      	   		If(@12 > 0, @12, null()) As [Best Sell Price],
+      	   		If(@13 > 0, @13, null()) As [Best Buy Price],
+      	   		@14 As [Open Interest Amount],
+      	   		@15 As [Open Interest Amount Previous],
+      	   		@16 As Count,
+      	   		@17 As [Count Address],
+      	   		Filename() As Filename
+   	   		FROM 
+   	   			[$(vFileName)]
+   	   			(biff, no labels, header is 2 lines, table is [Основной режим торгов$])
+   	   		WHERE not IsNull(@3);
+		END IF
+	NEXT vFileNo
+	
+	DROP Table BulletinList;

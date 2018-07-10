@@ -1,0 +1,90 @@
+// ---------- Update SPIMEX daily bulletins ---------- //
+	// STEP 1 Update contract names with the right spelling
+	// STEP 1.1 Add a temporary mapping table for wrong spelling
+	mapRenameFutureContract:
+	Mapping 
+	LOAD * INLINE [
+		name,replace
+		'Поставочный','Пост.'
+		'остав.','ост.'
+		'Расчетный','Расч.'
+		'с поставкой на','на'
+		'контракт','контр.'
+		'.Аи','.на Аи'
+		'топл.карте','т.к.'
+		'авитоплив','авиатоплив'
+		'авиц.топлив','авиатоплив'
+	];
+
+	// STEP 1.2 Apply the created mapping
+	NoConcatenate
+	[Bulletin SPIMEX Spelling Corrected]:
+	LOAD *,
+		Replace(Replace(
+			If([Instrument Type] = 'U', 
+				Trim([Instrument Type Name]),
+				MapSubString('mapRenameFutureContract', Trim([Instrument Type Name])
+			)
+   	  	), '.', '. '), '  ', ' ') As [Instrument Type Rename],
+   		Replace(Replace(
+      		If([Instrument Type] = 'U', 
+				Trim([Instrument Name]),
+				MapSubString('mapRenameFutureContract', Trim([Instrument Name])
+			)
+   	  	), '.', '. '), '  ', ' ') As [Instrument Rename];
+	LOAD * Resident [Bulletin SPIMEX];
+ 	
+ 	DROP Table [Bulletin SPIMEX];
+ 	  	  
+	DROP Fields [Instrument Type Name], [Instrument Name];
+   		  
+	RENAME Fields 
+		[Instrument Type Rename] 	To [Instrument Type Name], 
+		[Instrument Rename] 		To [Instrument Name];  
+	
+	
+	// STEP 2 Exclude non-trading dates
+	[Bulletin SPIMEX Filtered]:
+	NoConcatenate
+	LOAD *
+	Resident [Bulletin SPIMEX Spelling Corrected]
+	WHERE Date <> '30.12.2010';
+	
+	DROP Table [Bulletin SPIMEX Spelling Corrected];
+	
+	// STEP 3 Recalculate several attributes
+	// 1. Define previous day Open Interest and Settlement Price
+	// 2. Define VWAP Price based on Value, Amount and Lot Size
+	[Bulletin SPIMEX]:
+	NoConcatenate
+	LOAD *,
+		If(Instrument = Previous(Instrument),
+			Previous([Settlement Price]),
+			null()
+		) As [! Settlement Price Previous],
+		If(Instrument = Previous(Instrument),
+			Previous([Open Interest Amount]),
+			0
+		) As [! Open Interest Amount Previous],
+		If(not(IsNull([VWAP Price]) or [VWAP Price] = 0) and Value = 0,
+			null(), // the condition [Instrument Type] <> 'U' is needed due to spreads for Urals futures
+			Round(If(Amount > 0 and [Instrument Type] <> 'U', Value / Amount / [! Lot Size], [VWAP Price]), 0.01)
+		) As [! VWAP Price];
+	LOAD *,
+		Pick(WildMatch(Instrument, 'U*', 'FD*60*', 'FD*KIR*', 'FSCD*', '*'), 
+			1000, 60, 1080, 10, 1) As [! Lot Size]
+	Resident [Bulletin SPIMEX Filtered]
+	ORDER BY Instrument, Date;
+	
+	DROP Table [Bulletin SPIMEX Filtered];
+	
+	DROP Fields 
+		[Settlement Price Previous],
+		[Open Interest Amount Previous],
+		[VWAP Price],
+		[! Lot Size];
+	
+	RENAME Fields 
+		[! Settlement Price Previous] to [Settlement Price Previous],
+		[! Open Interest Amount Previous] to [Open Interest Amount Previous],
+		[! VWAP Price] to [VWAP Price];

@@ -1,0 +1,53 @@
+// ------------------------------------------------------------------------------------------
+// Original work by John Witherspoon As posted in QlikCommunity.com
+// Updated and refined by Tom Meers at Result Data (www.resultdata.com)
+// Portions (c) 2010-2016 Result Data
+
+// See https://www.resultdata.com/qlik-custom-calendars/ for details
+// Note: Replace the [Date] field on the INTERVAL MATCH line with a date field from the data model
+
+// LET vToday = Today(1);
+
+//--- PRECEDING LOAD: table with start and end date range fields
+//--- DATA LOAD: As an inline (hard coded) table using the vToday variable to populate start and end range fields
+[Date Selector]:
+LOAD
+	[Date Range],
+	Date(Evaluate(range_start)) As range_start,
+	Date(Evaluate(range_end)) 	As range_end;
+LOAD * INLINE [Date Range; range_start;	range_end
+	Last Year; 			YearStart(vToday, -1); 		YearEnd(vToday, -1)
+	This Year; 			YearStart(vToday); 			YearEnd(vToday)
+	Last Quarter; 		QuarterStart(vToday,-1); 	QuarterEnd(vToday,-1)
+	This Quarter; 		QuarterStart(vToday); 		QuarterEnd(vToday)
+	Last Month; 		MonthStart(vToday,-1); 		MonthEnd(vToday,-1)
+	This Month; 		MonthStart(vToday); 		MonthEnd(vToday)
+	Last Week; 			WeekStart(vToday, -1); 		WeekEnd(vToday, -1)
+	This Week; 			WeekStart(vToday); 			WeekEnd(vToday)
+	Yesterday;	 		DayStart(vToday, -1); 		DayEnd(vToday, -1)
+	Today; 				vToday; 					DayEnd(vToday)
+]  (delimiter is ';');
+/* Other examples
+	Today, 				vToday, 				DayEnd(vToday)
+	This Week, 			WeekStart(vToday), 		WeekEnd(vToday)
+	Last Week, 			WeekStart(vToday, -1), 	WeekEnd(vToday, -1)
+	This Month, 		MonthStart(vToday), 	MonthEnd(vToday)
+	Last Month, 		MonthStart(vToday,-1), 	MonthEnd(vToday,-1)
+	This Year, 			YearStart(vToday), 		YearEnd(vToday)
+	Last Year, 			YearStart(vToday, -1), 	YearEnd(vToday, -1)
+
+	Next Week, 			WeekStart(vToday, +1), 	WeekEnd(vToday, +1)
+	Next 2 Weeks, 		WeekStart(vToday, +1), 	WeekEnd(vToday, +2)
+	Last Two Weeks,		WeekStart(vToday, -1), 	WeekEnd(vToday)
+	Last Two Months, 	MonthStart(vToday,-1), 	MonthEnd(vToday)	
+*/
+
+//--- JOIN THE NEW TABLE TO MODEL: Use an interval match for the date range
+//--- Note: Replace the [Date] field below with a date field from the data model
+JOIN ([Date Selector]) 
+IntervalMatch (Date) 
+LOAD range_start, range_end 
+RESIDENT [Date Selector];
+
+//--- DROP UNNECESSARY FIELDS: Don't need start and end date fields, get rid of them
+DROP FIELDS range_start, range_end;
