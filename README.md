@@ -4,14 +4,6 @@
 # Description
 SPIMEX Derivatives Market is a simple tool to navigate [the first successfull Russian derivatives market](http://spimex.com/en/derivatives/market-portrait/). Using this tool you can explore the evolution of the market in real figures, following its twists and turns, and get insights about the current state of the market. Also, if you consider joining the market you can easily estimate the liquidity and volatility of each contract available on the market.
 
-<!--<p align="middle">
-    <img src="doc/Highlights - ADTV RUB.png" alt="ADTV RUB" width="100px"/>
-    <img src="doc/Highlights - ADOI RUB.png" alt="ADOI RUB" width="100px"/>
-    <img src="doc/Highlights - Average Number of Contracts.png" alt="Average Number of Contracts" width="100px"/>
-</p>-->
-
-<!--<img src="doc/Highlights.png" alt="Highlights" width="800px"/>-->
-
 Building this tool in QlikView, we 
 - provide a bird's-eye view of the current state and the history of the SPIMEX Derivatives Market
 - facilitate the usage of publicly available market data
@@ -21,7 +13,7 @@ Building this tool in QlikView, we
  - price evolution of the front month contract
  - FX rate history
 
-## Examples
+## GUI Examples
 ### Highlights
 <img src="doc/Highlights.png" alt="Highlights" width="800px"/>
 
@@ -96,6 +88,7 @@ We decyther additional information about the future contracts from their codes. 
 - `MS`: delivery hub is Moscow
 - `7`: delivery month is July
 - `8`: delivery year is 2018
+
 That information helps us to differentiate one contracts from others.
 
 Finally the following data model is used 
@@ -103,4 +96,4 @@ Finally the following data model is used
 We use two fact tables: Instrument, which combines all trading statistics along with the information extracted from contract codes and FX rates, and Instrument Check, which marks each row from the Instrument table with Yes or No values on the predefined set of data validation rules. Also, two suplementary tables are introduced to support navigation, aggregation and selection process on the Date column.
 
 # Author
-Ilya Zlotnik, 2018
+Ilya Zlotnik, 2017-2018
