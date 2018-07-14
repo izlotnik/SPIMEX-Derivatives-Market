@@ -43,6 +43,7 @@ The QlikView application uses only SPIMEX Daily Bulletins shared online on [the 
 <img src="doc/Daily Bulletins (SPIMEX website).png" alt="Daily Bulletins (SPIMEX website)" width="400px"/>
 
 These files contain various market statistics on all active contracts and usually they are published every business day. Also, some aggregated statistics are available from the website, please visit [Key Indicators page](http://spimex.com/en/derivatives/indicators/).
+
 <img src="doc/Key Indicators (SPIMEX website).png" alt="Key Indicators (SPIMEX website)" width="400px"/>
 
 ### Format
